@@ -12,7 +12,8 @@ need env file
 ** Make Sure you have your env file **
 
 ## INSTRUCTIONS
-
+ **Make sure** cncli sync before running the script
+ 
  **Run** the script
 ```
 ./leaderlog.sh
