@@ -120,7 +120,7 @@ else
 
 
     ##    Write Json file
-    echo "${cncli_leaderlog}" > "leaderlog{next_epoch}.json"
+    echo "${cncli_leaderlog}" > "leaderlog${next_epoch}.json"
 
 #    END CNCLI COMMAND
 
