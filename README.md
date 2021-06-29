@@ -18,7 +18,10 @@ need env file
 ```
 ./leaderlog.sh
 ```
-
+  **-- Optional** to force leaderlog calculate with
+```
+./leaderlog.sh force
+```
 
 
 ## More info
