@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2086,SC2154,SC2034,SC2012,SC2140,SC2028
 
+
+# usage() {
+#   cat <<-EOF >&2
+    
+#     Usage: $(basename "$0") [operation <sub arg>]
+#     Script to run Leaderlog
+    
+#     force     Manually force leaderlog calculation and overwrite even if already done, exits after leaderlog is calculated
+    
+#     EOF
+#   exit 1
+# }
+
+if [[ $# -eq 1 ]]; then
+  subarg=$1
+fi
+
+
+
+
 PARENT="$(dirname $0)"
 . "${PARENT}"/env
 
@@ -62,7 +82,7 @@ echo -e "CNCLI : ${CNCLI}"
 echo -e "Pool id : ${POOL_ID}"
 echo -e "\n\n"
 
-if [[ $(sqlite3 "${BLOCKLOG_DB}" "SELECT COUNT(*) FROM epochdata WHERE epoch=${next_epoch};" 2>/dev/null) -eq 1 ]]; then
+if [[ $(sqlite3 "${BLOCKLOG_DB}" "SELECT COUNT(*) FROM epochdata WHERE epoch=${next_epoch};" 2>/dev/null) -eq 1 && ${subarg} != "force" ]]; then
   
   echo "Leaderlogs already calculated for epoch ${next_epoch}, skipping!"
 
@@ -99,78 +119,78 @@ else
 
 
 
-echo "Running leaderlogs for epoch ${next_epoch} and adding leader slots not already in DB"
-stake_param_current=""
-if [[ ${LEDGER_API} = false || ${NWMAGIC} -ne 764824073 ]]; then 
-  if ! getLedgerData; then exit 1; else stake_param_current="--active-stake ${active_stake_set} --pool-stake ${pool_stake_set}"; fi
-fi
-cncli_leaderlog=$(${CNCLI} leaderlog --db "${CNCLI_DB}" --byron-genesis "${BYRON_GENESIS_JSON}" --shelley-genesis "${GENESIS_JSON}" --ledger-set current ${stake_param_current} --pool-id "${POOL_ID}" --pool-vrf-skey "${POOL_VRF_SKEY}" --tz UTC)
-if [[ $(jq -r .status <<< "${cncli_leaderlog}") != ok ]]; then
-  error_msg=$(jq -r .errorMessage <<< "${cncli_leaderlog}")
-  if [[ "${error_msg}" = "Query returned no rows" ]]; then
-    echo "No leader slots found for epoch ${next_epoch} :("
-  else
-    echo "ERROR: failure in leaderlog while running:"
-    echo "${CNCLI} leaderlog --db ${CNCLI_DB} --byron-genesis ${BYRON_GENESIS_JSON} --shelley-genesis ${GENESIS_JSON} --ledger-set current ${stake_param_current} --pool-id ${POOL_ID} --pool-vrf-skey ${POOL_VRF_SKEY} --tz UTC"
-    echo "Error message: ${error_msg}"
-    exit 1
+  echo "Running leaderlogs for epoch ${next_epoch} and adding leader slots not already in DB"
+  stake_param_current=""
+  if [[ ${LEDGER_API} = false || ${NWMAGIC} -ne 764824073 ]]; then 
+    if ! getLedgerData; then exit 1; else stake_param_current="--active-stake ${active_stake_set} --pool-stake ${pool_stake_set}"; fi
   fi
-else
+  cncli_leaderlog=$(${CNCLI} leaderlog --db "${CNCLI_DB}" --byron-genesis "${BYRON_GENESIS_JSON}" --shelley-genesis "${GENESIS_JSON}" --ledger-set current ${stake_param_current} --pool-id "${POOL_ID}" --pool-vrf-skey "${POOL_VRF_SKEY}" --tz UTC)
+  if [[ $(jq -r .status <<< "${cncli_leaderlog}") != ok ]]; then
+    error_msg=$(jq -r .errorMessage <<< "${cncli_leaderlog}")
+    if [[ "${error_msg}" = "Query returned no rows" ]]; then
+      echo "No leader slots found for epoch ${next_epoch} :("
+    else
+      echo "ERROR: failure in leaderlog while running:"
+      echo "${CNCLI} leaderlog --db ${CNCLI_DB} --byron-genesis ${BYRON_GENESIS_JSON} --shelley-genesis ${GENESIS_JSON} --ledger-set current ${stake_param_current} --pool-id ${POOL_ID} --pool-vrf-skey ${POOL_VRF_SKEY} --tz UTC"
+      echo "Error message: ${error_msg}"
+      exit 1
+    fi
+  else
 
 
 
-    ##    Write Json file
-    echo "${cncli_leaderlog}" > "leaderlog${next_epoch}.json"
+      ##    Write Json file
+      echo "${cncli_leaderlog}" > "leaderlog${next_epoch}.json"
 
-#    END CNCLI COMMAND
+  #    END CNCLI COMMAND
 
-    #    PRINT VAL after cncli
-    echo -e "Pool Stake Mark    : ${pool_stake_mark}"
-    echo -e "Active Stake Mark  : ${active_stake_mark}"
-    echo -e "Pool Stake Set     : ${pool_stake_set}"
-    echo -e "Active Stake Mark  : ${active_stake_set}"  
-    echo -e ""
-    epoch_nonce=$(jq -r '.epochNonce' <<< "${cncli_leaderlog}")
-    echo -e "Epoch nonce        : ${epoch_nonce}"
-    pool_id=$(jq -r '.poolId' <<< "${cncli_leaderlog}")
-    echo -e "Pool-id            : ${pool_id}"
-    sigma=$(jq -r '.sigma' <<< "${cncli_leaderlog}")
-    echo -e "Sigma              : ${sigma}"
-    d=$(jq -r '.d' <<< "${cncli_leaderlog}")
-    echo -e "d                  : ${d}"
-    epoch_slots_ideal=$(jq -r '.epochSlotsIdeal //0' <<< "${cncli_leaderlog}")
-    echo -e "Epoch slots ideal  : ${epoch_slots_ideal}"
-    max_performance=$(jq -r '.maxPerformance //0' <<< "${cncli_leaderlog}")
-    echo -e "Max Preformance    : ${max_performance}"
-    active_stake=$(jq -r '.activeStake //0' <<< "${cncli_leaderlog}")
-    echo -e "Active Stake       : ${active_stake}"
-    total_active_stake=$(jq -r '.totalActiveStake //0' <<< "${cncli_leaderlog}")
-    echo -e "Total Active Stake : ${total_active_stake}"
-    #    END OF PRINT VAL after cncli
-      
+      #    PRINT VAL after cncli
+      echo -e "Pool Stake Mark    : ${pool_stake_mark}"
+      echo -e "Active Stake Mark  : ${active_stake_mark}"
+      echo -e "Pool Stake Set     : ${pool_stake_set}"
+      echo -e "Active Stake Mark  : ${active_stake_set}"  
+      echo -e ""
+      epoch_nonce=$(jq -r '.epochNonce' <<< "${cncli_leaderlog}")
+      echo -e "Epoch nonce        : ${epoch_nonce}"
+      pool_id=$(jq -r '.poolId' <<< "${cncli_leaderlog}")
+      echo -e "Pool-id            : ${pool_id}"
+      sigma=$(jq -r '.sigma' <<< "${cncli_leaderlog}")
+      echo -e "Sigma              : ${sigma}"
+      d=$(jq -r '.d' <<< "${cncli_leaderlog}")
+      echo -e "d                  : ${d}"
+      epoch_slots_ideal=$(jq -r '.epochSlotsIdeal //0' <<< "${cncli_leaderlog}")
+      echo -e "Epoch slots ideal  : ${epoch_slots_ideal}"
+      max_performance=$(jq -r '.maxPerformance //0' <<< "${cncli_leaderlog}")
+      echo -e "Max Preformance    : ${max_performance}"
+      active_stake=$(jq -r '.activeStake //0' <<< "${cncli_leaderlog}")
+      echo -e "Active Stake       : ${active_stake}"
+      total_active_stake=$(jq -r '.totalActiveStake //0' <<< "${cncli_leaderlog}")
+      echo -e "Total Active Stake : ${total_active_stake}"
+      #    END OF PRINT VAL after cncli
+        
 
 
-###       Writing into DB
-###
+  ###       Writing into DB
+  ###
 
-      sqlite3 ${BLOCKLOG_DB} <<-EOF
-        UPDATE OR IGNORE epochdata SET epoch_nonce = '${epoch_nonce}', sigma = '${sigma}', d = ${d}, epoch_slots_ideal = ${epoch_slots_ideal}, max_performance = ${max_performance}, active_stake = '${active_stake}', total_active_stake = '${total_active_stake}'
-        WHERE epoch = ${next_epoch} AND pool_id = '${pool_id}';
-        INSERT OR IGNORE INTO epochdata (epoch, epoch_nonce, pool_id, sigma, d, epoch_slots_ideal, max_performance, active_stake, total_active_stake)
-        VALUES (${next_epoch}, '${epoch_nonce}', '${pool_id}', '${sigma}', ${d}, ${epoch_slots_ideal}, ${max_performance}, '${active_stake}', '${total_active_stake}');
+        sqlite3 ${BLOCKLOG_DB} <<-EOF
+          UPDATE OR IGNORE epochdata SET epoch_nonce = '${epoch_nonce}', sigma = '${sigma}', d = ${d}, epoch_slots_ideal = ${epoch_slots_ideal}, max_performance = ${max_performance}, active_stake = '${active_stake}', total_active_stake = '${total_active_stake}'
+          WHERE epoch = ${next_epoch} AND pool_id = '${pool_id}';
+          INSERT OR IGNORE INTO epochdata (epoch, epoch_nonce, pool_id, sigma, d, epoch_slots_ideal, max_performance, active_stake, total_active_stake)
+          VALUES (${next_epoch}, '${epoch_nonce}', '${pool_id}', '${sigma}', ${d}, ${epoch_slots_ideal}, ${max_performance}, '${active_stake}', '${total_active_stake}');
 EOF
-    block_cnt=0
-    while read -r assigned_slot; do
-      block_slot=$(jq -r '.slot' <<< "${assigned_slot}")
-      block_at=$(jq -r '.at' <<< "${assigned_slot}")
-      block_slot_in_epoch=$(jq -r '.slotInEpoch' <<< "${assigned_slot}")
-      sqlite3 "${BLOCKLOG_DB}" "INSERT OR IGNORE INTO blocklog (slot,at,slot_in_epoch,epoch,status) values (${block_slot},'${block_at}',${block_slot_in_epoch},${next_epoch},'leader');"
-      echo "LEADER: slot[${block_slot}] slotInEpoch[${block_slot_in_epoch}] at[${block_at}]"
-      ((block_cnt++))
-    done  < <(jq -c '.assignedSlots[]' <<< "${cncli_leaderlog}" 2>/dev/null)
-echo "Leaderlog calculation for epoch[${next_epoch}] completed and saved to blocklog DB"
-echo "Leaderslots: ${block_cnt} - Ideal slots for epoch based on active stake: ${epoch_slots_ideal} - Luck factor ${max_performance}%"
-fi
+      block_cnt=0
+      while read -r assigned_slot; do
+        block_slot=$(jq -r '.slot' <<< "${assigned_slot}")
+        block_at=$(jq -r '.at' <<< "${assigned_slot}")
+        block_slot_in_epoch=$(jq -r '.slotInEpoch' <<< "${assigned_slot}")
+        sqlite3 "${BLOCKLOG_DB}" "INSERT OR IGNORE INTO blocklog (slot,at,slot_in_epoch,epoch,status) values (${block_slot},'${block_at}',${block_slot_in_epoch},${next_epoch},'leader');"
+        echo "LEADER: slot[${block_slot}] slotInEpoch[${block_slot_in_epoch}] at[${block_at}]"
+        ((block_cnt++))
+      done  < <(jq -c '.assignedSlots[]' <<< "${cncli_leaderlog}" 2>/dev/null)
+  echo "Leaderlog calculation for epoch[${next_epoch}] completed and saved to blocklog DB"
+  echo "Leaderslots: ${block_cnt} - Ideal slots for epoch based on active stake: ${epoch_slots_ideal} - Luck factor ${max_performance}%"
+  fi
 
 
 
